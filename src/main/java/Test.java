@@ -9,6 +9,8 @@ import javax.swing.JLabel;
 import java.awt.FlowLayout;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.awt.image.BufferedImage;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -18,7 +20,11 @@ import java.nio.FloatBuffer;
 public class Test {
 
     static final int WIDTH = 128;
-    static final int SCAlE_WIDTH = 256;
+    static final int SCAlE_WIDTH = 512;
+    static final float speed = .05f;
+
+    float[][] input = new float[1][100];
+    float[] direction = new float[100];
 
     public static void main(String[] args) throws IOException, InterruptedException {
         new Test();
@@ -30,7 +36,34 @@ public class Test {
         frame.getContentPane().setLayout(new FlowLayout());
         ImageIcon imageIcon = new ImageIcon(new BufferedImage(SCAlE_WIDTH, SCAlE_WIDTH, BufferedImage.TYPE_INT_RGB));
         JLabel label = new JLabel(imageIcon);
+        label.addMouseListener(new MouseListener() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                resetImage();
+            }
+
+            @Override
+            public void mousePressed(MouseEvent e) {
+
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent e) {
+
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+
+            }
+        });
         frame.getContentPane().add(label);
+//        frame.setUndecorated(true);
         frame.pack();
         frame.setVisible(true);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -41,26 +74,21 @@ public class Test {
         try (SavedModelBundle smb = SavedModelBundle.load("./model", "serve")) {
             Session sess = smb.session();
             Graph graph = smb.graph();
-            float[][] input = new float[1][100];
-
-            float[] direction = new float[100];
-            for (int i = 0; i < 100; i++) {
-                input[0][i] = (float) (Math.random() * 2.0f - 1f);
-                direction[i] = (float) ((Math.random() * 2.0f - 1f));
-            }
-            normalize(direction, .06f);
+            resetImage();
+            int cnt = 0;
             while (true) {
+                cnt++;
+                if (cnt % 100 == 0) {
+                    resetImage();
+                }
                 for (int i = 0; i < 100; i++) {
                     if (input[0][i] < -1f || input[0][i] > 1f) {
                         direction[i] = -direction[i];
                     }
                     input[0][i] += direction[i];
+                    direction[i] += ((float) (Math.random() * 2.0f) - 1f) / 500f;
                 }
-
-                for (int i = 0; i < 3; i++) {
-                    int j = (int) (Math.random() * 10);
-                    direction[j] += ((float) (Math.random() * 2.0f) - 1f) / 100f;
-                }
+                normalize(direction, speed);
                 Tensor t = Tensor.create(input);
                 Tensor out = runAI(sess, t, "input_z", "generator/out");
 
@@ -68,13 +96,22 @@ public class Test {
 //                FloatBuffer discrData = FloatBuffer.allocate(1);
 //                discr.writeTo(discrData);
 //                float discAr = discrData.array()[0];
-//
+//                System.out.println(discAr);
+
                 BufferedImage image = scale(convert(out), SCAlE_WIDTH);
                 imageIcon.setImage(image);
                 label.repaint();
             }
 
         }
+    }
+
+    private void resetImage() {
+        for (int i = 0; i < 100; i++) {
+            input[0][i] = (float) (Math.random() * 2.0f - 1f);
+            direction[i] = (float) ((Math.random() * 2.0f - 1f));
+        }
+        normalize(direction, speed);
     }
 
 
@@ -100,14 +137,16 @@ public class Test {
         FloatBuffer imageData = FloatBuffer.allocate(128 * 128 * 3);
         out.writeTo(imageData);
         imageData.rewind();
-        float min = Float.MAX_VALUE;
-        float max = Float.MIN_VALUE;
-        while (imageData.hasRemaining()) {
+//        float min = Float.MAX_VALUE;
+//        float max = Float.MIN_VALUE;
+        float min = -1;
+        float max = 1;
+        /*while (imageData.hasRemaining()) {
             float f = imageData.get();
             if (f > max) max = f;
             if (f < min) min = f;
         }
-        imageData.rewind();
+        imageData.rewind();*/
 
         // fill rgbArray for BufferedImage
         int[] rgbArray = new int[WIDTH * WIDTH];
@@ -158,7 +197,7 @@ public class Test {
         }
 
         for (int i = 0; i < input.length; i++) {
-            input[i] = ((input[i] - min) / max) * scale;
+            input[i] = (((input[i] - min) / (max - min)) * 2f - 1f) * scale;
         }
     }
 }
