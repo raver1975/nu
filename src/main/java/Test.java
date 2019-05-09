@@ -21,7 +21,7 @@ public class Test {
 
     static final int WIDTH = 128;
     static final int SCAlE_WIDTH = 512;
-    static final float speed = .05f;
+    static final float speed = .1f;
 
     float[][] input = new float[1][100];
     float[] direction = new float[100];
@@ -54,16 +54,17 @@ public class Test {
 
             @Override
             public void mouseEntered(MouseEvent e) {
+                System.out.println(e);
 
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
-
+                System.exit(0);
             }
         });
         frame.getContentPane().add(label);
-//        frame.setUndecorated(true);
+        frame.setUndecorated(true);
         frame.pack();
         frame.setVisible(true);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -77,8 +78,7 @@ public class Test {
             resetImage();
             int cnt = 0;
             while (true) {
-                cnt++;
-                if (cnt % 100 == 0) {
+                if (++cnt % 200 == 0) {
                     resetImage();
                 }
                 for (int i = 0; i < 100; i++) {
@@ -86,7 +86,7 @@ public class Test {
                         direction[i] = -direction[i];
                     }
                     input[0][i] += direction[i];
-                    direction[i] += ((float) (Math.random() * 2.0f) - 1f) / 500f;
+                    direction[i] += ((float) (Math.random() * 2.0f) - 1f) / 50f;
                 }
                 normalize(direction, speed);
                 Tensor t = Tensor.create(input);
@@ -137,33 +137,15 @@ public class Test {
         FloatBuffer imageData = FloatBuffer.allocate(128 * 128 * 3);
         out.writeTo(imageData);
         imageData.rewind();
-//        float min = Float.MAX_VALUE;
-//        float max = Float.MIN_VALUE;
-        float min = -1;
-        float max = 1;
-        /*while (imageData.hasRemaining()) {
-            float f = imageData.get();
-            if (f > max) max = f;
-            if (f < min) min = f;
-        }
-        imageData.rewind();*/
-
         // fill rgbArray for BufferedImage
         int[] rgbArray = new int[WIDTH * WIDTH];
-        float val = 0;
-        int valI = 0;
+        int r, g, b, i = 0;
         for (int y = WIDTH - 1; y > -1; --y) {
             for (int x = 0; x < WIDTH; ++x) {
-                val = imageData.get();
-                valI = (int) (((val - min) * 255) / (max - min));
-                int r = valI << 16;
-                val = imageData.get();
-                valI = (int) (((val - min) * 255) / (max - min));
-                int g = valI << 8;
-                val = imageData.get();
-                valI = (int) (((val - min) * 255) / (max - min));
-                int b = valI;
-                int i = ((WIDTH - 1) - y) * WIDTH + x;
+                r = (int) (((imageData.get() + 1f) * 255) / 2f) << 16;
+                g = (int) (((imageData.get() + 1f) * 255) / 2f) << 8;
+                b = (int) (((imageData.get() + 1f) * 255) / 2f);
+                i = ((WIDTH - 1) - y) * WIDTH + x;
                 rgbArray[i] = r + g + b;
             }
         }
