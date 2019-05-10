@@ -1,5 +1,9 @@
 import com.idrsolutions.image.JDeli;
 import com.idrsolutions.image.scale.SuperResolution;
+import org.bytedeco.javacv.FFmpegFrameRecorder;
+import org.bytedeco.javacv.Frame;
+import org.bytedeco.javacv.FrameRecorder;
+import org.bytedeco.javacv.Java2DFrameConverter;
 import org.tensorflow.Graph;
 import org.tensorflow.SavedModelBundle;
 import org.tensorflow.Session;
@@ -16,6 +20,7 @@ import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.Label;
@@ -25,25 +30,29 @@ import java.awt.Toolkit;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.nio.FloatBuffer;
+import java.text.SimpleDateFormat;
 import java.util.Date;
+
+import static org.bytedeco.javacpp.avutil.AV_PIX_FMT_ARGB;
 
 
 public class Test {
 
     static final int WIDTH = 128;
-    static final int SCAlE_WIDTH = 512;
-    static float high_speed = .2f;
-    static float low_speed = .05f;
-    static float speed = high_speed;
-    private final int reset_after = 400;
-    private final boolean usesuperresolution = false;
+    private final int reset_after = 600;
+    private static final boolean usesuperresolution = false;
+    static int SCAlE_WIDTH = usesuperresolution ? 256 : 256;  //change resolution here
+    private static boolean record = false;
+    private float speedFactor =20f;
 
-
-    private int num_images = 4;
+    private Java2DFrameConverter converter;
+    public static FFmpegFrameRecorder recorder;
+    private int num_images = 1;
     float[][] input = new float[num_images][100];
     float[][] direction = new float[num_images][100];
 
@@ -52,6 +61,34 @@ public class Test {
     }
 
     public Test() throws IOException, InterruptedException {
+        if (record) {
+            Thread thread = new Thread(() -> {
+                if (record) {
+                    try {
+                        System.out.println("recorder stopped");
+                        recorder.stop();
+                    } catch (FrameRecorder.Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+            Runtime.getRuntime().addShutdownHook(thread);
+            recorder = new FFmpegFrameRecorder(new File("out" + Math.random() + ".mp4"), SCAlE_WIDTH, SCAlE_WIDTH, 2);
+//            recorder.setVideoCodec(12);
+            recorder.setFormat("mp4");
+            recorder.setFrameRate(30);
+            recorder.setVideoQuality(0);
+            recorder.setImageWidth(SCAlE_WIDTH);
+            recorder.setImageHeight(SCAlE_WIDTH);
+            try {
+                recorder.start();
+                System.out.println("****recorder started");
+            } catch (FrameRecorder.Exception e) {
+                e.printStackTrace();
+            }
+            converter = new Java2DFrameConverter();
+        }
+
 
         JFrame frame = new JFrame();
         frame.getContentPane().setLayout(new FlowLayout());
@@ -61,6 +98,7 @@ public class Test {
         GridLayout gridLayout1 = new GridLayout(25, 1);
 //        GridLayout gridLayout2 = new GridLayout(50, 1);
         frame.getContentPane().setLayout(gridLayout);
+
         JPanel[] panels = new JPanel[4];
         for (int i = 0; i < 4; i++) {
             panels[i] = new JPanel();
@@ -84,7 +122,7 @@ public class Test {
             });
             panels[i % 4].add(sliders[i]);
         }
-        frame.getContentPane().add(panels[0]);
+//        frame.getContentPane().add(panels[0]);
         for (int k = 0; k < num_images; k++) {
             imageIcon[k] = new ImageIcon(new BufferedImage(SCAlE_WIDTH, SCAlE_WIDTH, BufferedImage.TYPE_INT_RGB));
             label[k] = new JLabel(imageIcon[k]);
@@ -106,24 +144,19 @@ public class Test {
 
                 @Override
                 public void mouseEntered(MouseEvent e) {
-                    speed = high_speed;
-//                    frame.setUndecorated(true);
                 }
 
                 @Override
                 public void mouseExited(MouseEvent e) {
-                    speed = low_speed;
-//                    frame.setUndecorated(false);
-//                    System.exit(0);
                 }
             });
-            if (k == 2) {
+         /*   if (k == 2) {
                 frame.getContentPane().add(panels[1]);
                 frame.getContentPane().add(panels[2]);
-            }
+            }*/
             frame.getContentPane().add(label[k]);
         }
-        frame.getContentPane().add(panels[3]);
+        //frame.getContentPane().add(panels[3]);
 
         frame.setUndecorated(false);
         Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
@@ -132,7 +165,6 @@ public class Test {
         frame.setVisible(true);
         frame.setSize(frame.getSize().width * 2 / 3, frame.getSize().height * 2 / 3);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
 
         // load the model Bundle
 
@@ -184,6 +216,14 @@ public class Test {
                     imageIcon[k].setImage(usesuperresolution ? SuperResolution.scale2x(images[k]) : images[k]);
                     label[k].repaint();
                 }
+                if (record) {
+                    Frame frame1 = converter.convert(images[0]);
+                    try {
+                        recorder.recordImage(frame1.imageWidth, frame1.imageHeight, frame1.imageDepth, frame1.imageChannels, frame1.imageStride, AV_PIX_FMT_ARGB, frame1.image);
+                    } catch (FrameRecorder.Exception e) {
+                        e.printStackTrace();
+                    }
+                }
             }
 
         }
@@ -193,7 +233,7 @@ public class Test {
         for (int i = 0; i < 100; i++) {
             float ran2 = (float) (Math.random() * 2.0f - 1f);
             for (int k = 0; k < num_images; k++) {
-                direction[k][i] = (float) ((Math.random() * 2.0f - 1f)) / 20f;
+                direction[k][i] = (float) ((Math.random() * 2.0f - 1f)) / speedFactor;
                 input[k][i] = ran2;
             }
         }
@@ -294,6 +334,21 @@ public class Test {
         for (int i = 0; i < input[k].length; i++) {
             inp[k][i] = (((inp[k][i] - min) / (max - min)) * 2f - 1f) * scale;
         }
+    }
+
+    public void drawTime(BufferedImage image, int x, int y) {
+        Date date = new Date();
+        int seconds = date.getSeconds();
+        int minutes = date.getMinutes();
+        int hours = date.getHours();
+
+        Graphics2D twoD = (Graphics2D) image.getGraphics();
+        twoD.setColor(new Color(255, 0, 0, 199));
+        SimpleDateFormat sdf = new SimpleDateFormat("hh:MM:ss");
+        twoD.setColor(Color.red);
+        Font font = new Font(Font.SANS_SERIF, Font.PLAIN, 100);
+        twoD.setFont(font);
+        twoD.drawString(sdf.format(date), x, y);
     }
 
     public void drawClock(BufferedImage image, int x, int y) {
