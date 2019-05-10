@@ -35,13 +35,15 @@ import java.util.Date;
 public class Test {
 
     static final int WIDTH = 128;
-    static final int SCAlE_WIDTH = 256;
-    static float speed = .1f;
+    static final int SCAlE_WIDTH = 512;
+    static float high_speed = .2f;
+    static float low_speed = .05f;
+    static float speed = high_speed;
     private final int reset_after = 400;
     private final boolean usesuperresolution = false;
 
 
-    private int num_images = 1;
+    private int num_images = 4;
     float[][] input = new float[num_images][100];
     float[][] direction = new float[num_images][100];
 
@@ -69,16 +71,20 @@ public class Test {
             sliders[i] = new JSlider();
             sliders[i].setMinimum(-1000);
             sliders[i].setMaximum((1000));
-            int finalI = i;
+            sliders[i].setName(i + "");
             sliders[i].addChangeListener(new ChangeListener() {
+
                 @Override
                 public void stateChanged(ChangeEvent e) {
-                    input[0][finalI] = ((JSlider) e.getSource()).getValue() / 1000f;
-                    direction[0][finalI] = 0f;
+//                    for (int k = 0; k < 4; k++) {
+                    input[0][Integer.parseInt(((JSlider) e.getSource()).getName())] = ((JSlider) e.getSource()).getValue() / 1000f;
+//                    }
+                    //direction[0][Integer.parseInt(((JSlider) e.getSource()).getName())] = 0f;
                 }
             });
             panels[i % 4].add(sliders[i]);
         }
+        frame.getContentPane().add(panels[0]);
         for (int k = 0; k < num_images; k++) {
             imageIcon[k] = new ImageIcon(new BufferedImage(SCAlE_WIDTH, SCAlE_WIDTH, BufferedImage.TYPE_INT_RGB));
             label[k] = new JLabel(imageIcon[k]);
@@ -100,28 +106,31 @@ public class Test {
 
                 @Override
                 public void mouseEntered(MouseEvent e) {
-                    speed = .1f;
+                    speed = high_speed;
 //                    frame.setUndecorated(true);
                 }
 
                 @Override
                 public void mouseExited(MouseEvent e) {
-                    speed = .02f;
+                    speed = low_speed;
 //                    frame.setUndecorated(false);
 //                    System.exit(0);
                 }
             });
+            if (k == 2) {
+                frame.getContentPane().add(panels[1]);
+                frame.getContentPane().add(panels[2]);
+            }
             frame.getContentPane().add(label[k]);
         }
-        for (int i = 0; i < 4; i++) {
-            frame.getContentPane().add(panels[i]);
-        }
+        frame.getContentPane().add(panels[3]);
 
         frame.setUndecorated(false);
         Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
-        frame.setLocation(dim.width / 2 - WIDTH / 2, dim.height / 2 - this.WIDTH / 2);
+//        frame.setLocation(dim.width / 2 - WIDTH / 2, dim.height / 2 - this.WIDTH / 2);
         frame.pack();
         frame.setVisible(true);
+        frame.setSize(frame.getSize().width * 2 / 3, frame.getSize().height * 2 / 3);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
 
@@ -138,16 +147,16 @@ public class Test {
                 }
                 for (int k = 0; k < num_images; k++) {
                     for (int i = 0; i < 100; i++) {
+                        input[k][i] += direction[k][i];
                         if (input[k][i] < -1f || input[k][i] > 1f) {
                             direction[k][i] = -direction[k][i];
+                            input[k][i] += direction[k][i];
                         }
-                        input[k][i] += direction[k][i];
-                        direction[k][i] += ((float) (Math.random() * 2.0f) - 1f) / 50f;
+//                        direction[k][i] += ((float) (Math.random() * 2.0f) - 1f) / 500f;
                     }
-                    normalize(direction[k], speed);
+                    //normalize(direction,k, speed);
 
                 }
-
                 for (int i = 0; i < 100; i++) {
                     sliders[i].setValue((int) (input[0][i] * 1000f));
                 }
@@ -181,13 +190,16 @@ public class Test {
     }
 
     private void resetImage() {
-        for (int k = 0; k < num_images; k++) {
-            for (int i = 0; i < 100; i++) {
-                input[k][i] = (float) (Math.random() * 2.0f - 1f);
-                direction[k][i] = (float) ((Math.random() * 2.0f - 1f));
+        for (int i = 0; i < 100; i++) {
+            float ran2 = (float) (Math.random() * 2.0f - 1f);
+            for (int k = 0; k < num_images; k++) {
+                direction[k][i] = (float) ((Math.random() * 2.0f - 1f)) / 20f;
+                input[k][i] = ran2;
             }
-            normalize(direction[k], speed);
         }
+        //normalize(direction,k, speed);
+
+
     }
 
 
@@ -271,16 +283,16 @@ public class Test {
     }
 
 
-    public void normalize(float[] input, float scale) {
+    public void normalize(float[][] inp, int k, float scale) {
         float min = Float.MAX_VALUE;
         float max = Float.MIN_VALUE;
-        for (float f : input) {
+        for (float f : inp[k]) {
             if (f < min) min = f;
             if (f > max) max = f;
         }
 
-        for (int i = 0; i < input.length; i++) {
-            input[i] = (((input[i] - min) / (max - min)) * 2f - 1f) * scale;
+        for (int i = 0; i < input[k].length; i++) {
+            inp[k][i] = (((inp[k][i] - min) / (max - min)) * 2f - 1f) * scale;
         }
     }
 
