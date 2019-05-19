@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'com.github.johnrengelman.shadow' version '5.0.0'
+    id 'application'
 }
 
 group 'com.klemstinegroup'
@@ -11,6 +12,10 @@ sourceCompatibility = 1.8
 repositories {
     mavenCentral()
     jcenter()
+}
+
+application {
+    mainClassName = 'Test'
 }
 
 dependencies {
