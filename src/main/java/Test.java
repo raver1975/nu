@@ -1,4 +1,3 @@
-import com.idrsolutions.image.JDeli;
 import com.idrsolutions.image.scale.SuperResolution;
 import org.bytedeco.javacv.FFmpegFrameRecorder;
 import org.bytedeco.javacv.Frame;
@@ -21,21 +20,22 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
-import java.awt.Label;
-import java.awt.Panel;
 import java.awt.RenderingHints;
 import java.awt.Toolkit;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.font.FontRenderContext;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.nio.FloatBuffer;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
 
 import static org.bytedeco.javacpp.avutil.AV_PIX_FMT_ARGB;
@@ -43,24 +43,30 @@ import static org.bytedeco.javacpp.avutil.AV_PIX_FMT_ARGB;
 
 public class Test {
 
-    static final int WIDTH = 128;
-    private final int reset_after = 600;
-    private static final boolean usesuperresolution = false;
-    static int SCAlE_WIDTH = usesuperresolution ? 256 : 256;  //change resolution here
-    private static boolean record = false;
-    private float speedFactor =20f;
+    private static final int WIDTH = 128;
+    private static final int stretch_width = 160;
+    private static final int stretch_height = 240;
+    private static final boolean rotate90 = true;
+
+    //    private static final int reset_after = 600;
+//    private static final boolean usesuperresolution = false;
+//    private static final int SCAlE_WIDTH = usesuperresolution ? 256 : 512;  //change resolution here
+    private static final boolean record = false;
+    private static final float speedFactor = 20f;
 
     private Java2DFrameConverter converter;
-    public static FFmpegFrameRecorder recorder;
-    private int num_images = 1;
-    float[][] input = new float[num_images][100];
-    float[][] direction = new float[num_images][100];
+    private static FFmpegFrameRecorder recorder;
+    private int num_images = 4;
+    private float[][] input = new float[num_images][100];
+    private float[][] direction = new float[num_images][100];
+    private int lastMinutes;
+    private int timeCounter;
 
     public static void main(String[] args) throws IOException, InterruptedException {
         new Test();
     }
 
-    public Test() throws IOException, InterruptedException {
+    private Test() throws IOException, InterruptedException {
         if (record) {
             Thread thread = new Thread(() -> {
                 if (record) {
@@ -73,13 +79,13 @@ public class Test {
                 }
             });
             Runtime.getRuntime().addShutdownHook(thread);
-            recorder = new FFmpegFrameRecorder(new File("out" + Math.random() + ".mp4"), SCAlE_WIDTH, SCAlE_WIDTH, 2);
+            recorder = new FFmpegFrameRecorder(new File("out" + Math.random() + ".mp4"), stretch_width, stretch_height, 2);
 //            recorder.setVideoCodec(12);
             recorder.setFormat("mp4");
             recorder.setFrameRate(30);
             recorder.setVideoQuality(0);
-            recorder.setImageWidth(SCAlE_WIDTH);
-            recorder.setImageHeight(SCAlE_WIDTH);
+            recorder.setImageWidth(stretch_width);
+            recorder.setImageHeight(stretch_height);
             try {
                 recorder.start();
                 System.out.println("****recorder started");
@@ -124,7 +130,7 @@ public class Test {
         }
 //        frame.getContentPane().add(panels[0]);
         for (int k = 0; k < num_images; k++) {
-            imageIcon[k] = new ImageIcon(new BufferedImage(SCAlE_WIDTH, SCAlE_WIDTH, BufferedImage.TYPE_INT_RGB));
+            imageIcon[k] = new ImageIcon(new BufferedImage(rotate90 ? stretch_height : stretch_width, rotate90 ? stretch_width : stretch_height, BufferedImage.TYPE_INT_RGB));
             label[k] = new JLabel(imageIcon[k]);
             label[k].addMouseListener(new MouseListener() {
                 @Override
@@ -158,12 +164,13 @@ public class Test {
         }
         //frame.getContentPane().add(panels[3]);
 
-        frame.setUndecorated(false);
+        frame.setUndecorated(true);
         Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
 //        frame.setLocation(dim.width / 2 - WIDTH / 2, dim.height / 2 - this.WIDTH / 2);
+//        frame.setSize(frame.getSize().width * 2 / 3, frame.getSize().height * 2 / 3);
         frame.pack();
         frame.setVisible(true);
-        frame.setSize(frame.getSize().width * 2 / 3, frame.getSize().height * 2 / 3);
+
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         // load the model Bundle
@@ -172,11 +179,7 @@ public class Test {
             Session sess = smb.session();
             Graph graph = smb.graph();
             resetImage();
-            int cnt = 0;
             while (true) {
-                if (++cnt % reset_after == 0) {
-                    resetImage();
-                }
                 for (int k = 0; k < num_images; k++) {
                     for (int i = 0; i < 100; i++) {
                         input[k][i] += direction[k][i];
@@ -196,24 +199,35 @@ public class Test {
                 Tensor t = Tensor.create(input);
                 Tensor out = runAI(sess, t, "input_z", "generator/out");
 
-//                Tensor discr = runAI(sess, out, "inputs_real", "discriminator/out");
-//                FloatBuffer discrData = FloatBuffer.allocate(1);
-//                discr.writeTo(discrData);
-//                float discAr = discrData.array()[0];
-//                System.out.println(discAr);
+                /*Tensor discr = runAI(sess, out, "inputs_real", "discriminator/out");
+                System.out.println("shape:"+ Arrays.toString(discr.shape()));
+                FloatBuffer discrData = FloatBuffer.allocate(1);
+                discr.writeTo(discrData);
+                float discAr = discrData.array()[0];
+                System.out.printf("%.16f", discAr);
+                System.out.println();*/
 
                 BufferedImage[] images;
-                images = usesuperresolution ? convert(out) : scale(convert(out), SCAlE_WIDTH);
+                images = scale(convert(out), stretch_width, stretch_height);
 //                for (BufferedImage image:images) {
 //                }
 
                 //twoD.translate(SCAlE_WIDTH/2+SCAlE_WIDTH/3,SCAlE_WIDTH/2-SCAlE_WIDTH/3);
-//                drawClock(images[0],SCAlE_WIDTH/2+SCAlE_WIDTH/2,SCAlE_WIDTH/2+SCAlE_WIDTH/2);
-//                drawClock(images[2],SCAlE_WIDTH/2+SCAlE_WIDTH/2,SCAlE_WIDTH/2-SCAlE_WIDTH/2);
-//                drawClock(images[1],SCAlE_WIDTH/2-SCAlE_WIDTH/2,SCAlE_WIDTH/2+SCAlE_WIDTH/2);
-//                drawClock(images[3],SCAlE_WIDTH/2-SCAlE_WIDTH/2,SCAlE_WIDTH/2-SCAlE_WIDTH/2);
+                if (!rotate90) {
+                    drawTime(images[0], stretch_width, stretch_height);
+                    drawTime(images[1], 0, stretch_height);
+                    drawTime(images[2], stretch_width, 0);
+                    drawTime(images[3], 0, 0);
+                }
+                else{
+                    drawTime(images[2], stretch_width, stretch_height);
+                    drawTime(images[0], 0, stretch_height);
+                    drawTime(images[3], stretch_width, 0);
+                    drawTime(images[1], 0, 0);
+                }
+//                usesuperresolution ? SuperResolution.scale2x(images[k]) :
                 for (int k = 0; k < num_images; k++) {
-                    imageIcon[k].setImage(usesuperresolution ? SuperResolution.scale2x(images[k]) : images[k]);
+                    imageIcon[k].setImage((rotate90 ? rotateClockwise90(images[k]) : images[k]));
                     label[k].repaint();
                 }
                 if (record) {
@@ -231,8 +245,8 @@ public class Test {
 
     private void resetImage() {
         for (int i = 0; i < 100; i++) {
-            float ran2 = (float) (Math.random() * 2.0f - 1f);
             for (int k = 0; k < num_images; k++) {
+                float ran2 = (float) (Math.random() * 2.0f - 1f);
                 direction[k][i] = (float) ((Math.random() * 2.0f - 1f)) / speedFactor;
                 input[k][i] = ran2;
             }
@@ -252,16 +266,15 @@ public class Test {
      * @throws IOException
      * @throws FileNotFoundException
      */
-    public static Tensor runAI(Session sess, Tensor inputTensor, String input, String output) throws IOException, FileNotFoundException {
-        Tensor result = sess.runner()
+    private static Tensor runAI(Session sess, Tensor inputTensor, String input, String output) throws IOException, FileNotFoundException {
+        return sess.runner()
                 .feed(input, inputTensor)
                 .fetch(output)
                 .run().get(0);
-        return result;
     }
 
 
-    public BufferedImage[] convert(Tensor out) {
+    private BufferedImage[] convert(Tensor out) {
         FloatBuffer imageData = FloatBuffer.allocate(num_images * 128 * 128 * 3);
         out.writeTo(imageData);
         imageData.rewind();
@@ -282,6 +295,7 @@ public class Test {
                     dif[k] = max[k] - min[k];
                 }
             }
+//            System.out.println(k+"\t"+min[k]+"\t"+max[k]+"\t"+dif[k]);
         }
 
         imageData.rewind();
@@ -307,14 +321,14 @@ public class Test {
         return images;
     }
 
-    public BufferedImage[] scale(BufferedImage[] originals, int size) {
+    public BufferedImage[] scale(BufferedImage[] originals, int width, int height) {
         BufferedImage[] resized = new BufferedImage[num_images];
         for (int k = 0; k < num_images; k++) {
-            BufferedImage resize = new BufferedImage(size, size, originals[k].getType());
+            BufferedImage resize = new BufferedImage(width, height, originals[k].getType());
             Graphics2D g = resize.createGraphics();
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
                     RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g.drawImage(originals[k], 0, 0, size, size, 0, 0, originals[k].getWidth(),
+            g.drawImage(originals[k], 0, 0, width, height, 0, 0, originals[k].getWidth(),
                     originals[k].getHeight(), null);
             g.dispose();
             resized[k] = resize;
@@ -341,47 +355,40 @@ public class Test {
         int seconds = date.getSeconds();
         int minutes = date.getMinutes();
         int hours = date.getHours();
-
-        Graphics2D twoD = (Graphics2D) image.getGraphics();
-        twoD.setColor(new Color(255, 0, 0, 199));
-        SimpleDateFormat sdf = new SimpleDateFormat("hh:MM:ss");
-        twoD.setColor(Color.red);
-        Font font = new Font(Font.SANS_SERIF, Font.PLAIN, 100);
-        twoD.setFont(font);
-        twoD.drawString(sdf.format(date), x, y);
+        if (minutes != lastMinutes) {
+            resetImage();
+            timeCounter = 64;
+        }
+        lastMinutes = minutes;
+        if (timeCounter-- > 0) {
+            Graphics2D twoD = (Graphics2D) image.getGraphics();
+            twoD.setColor(new Color(255, 0, 0, timeCounter*4));
+            SimpleDateFormat sdf = new SimpleDateFormat("hh:mm");
+//        SimpleDateFormat sdf = new SimpleDateFormat("hh:MM:ss");
+//            twoD.setColor(Color.red);
+            Font font = new Font(Font.SANS_SERIF, Font.PLAIN, 80);
+            twoD.setFont(font);
+            String time = sdf.format(date);
+            if (time.startsWith("0")) {
+                time = time.substring(1);
+            }
+            Rectangle2D textBounds = twoD.getFontMetrics().getStringBounds(time, twoD);
+            twoD.drawString(time, (int) (x - textBounds.getWidth() / 2), (int) (y + textBounds.getHeight() / 4));
+        }
     }
 
-    public void drawClock(BufferedImage image, int x, int y) {
-        Date date = new Date();
-        int seconds = date.getSeconds();
-        int minutes = date.getMinutes();
-        int hours = date.getHours();
 
-        Graphics2D twoD = (Graphics2D) image.getGraphics();
-        twoD.setColor(new Color(255, 0, 0, 199));
-//        twoD.translate(SCAlE_WIDTH/2+SCAlE_WIDTH/3,SCAlE_WIDTH/2-SCAlE_WIDTH/3);
-        twoD.translate(x, y);
+    public static BufferedImage rotateClockwise90(BufferedImage src) {
+        int width = src.getWidth();
+        int height = src.getHeight();
 
-//        Drawing the hour markers
-//        for(int i=0; i<12; i++) {
-//            twoD.drawLine(0, -SCAlE_WIDTH/4, 0, -SCAlE_WIDTH/2);
-//            twoD.rotate(Math.PI/6);
-//        }
-        twoD.rotate(seconds * Math.PI / 30);
-        twoD.setStroke(new BasicStroke(1));
-        twoD.setColor(new Color(255, 255, 0, 199));
-        twoD.drawLine(0, 0, 0, -SCAlE_WIDTH / 6);
+        BufferedImage dest = new BufferedImage(height, width, src.getType());
 
-        twoD.rotate(2 * Math.PI - seconds * Math.PI / 30);
-        twoD.rotate(minutes * Math.PI / 30);
-        twoD.setStroke(new BasicStroke(3));
-        twoD.setColor(new Color(0, 0, 255, 199));
-        twoD.drawLine(0, 0, 0, -SCAlE_WIDTH / 4);
+        Graphics2D graphics2D = dest.createGraphics();
+        graphics2D.translate((height - width) / 2, -(height - width) / 2);
+        graphics2D.rotate(-Math.PI / 2, width / 2, height / 2);
+        graphics2D.drawRenderedImage(src, null);
 
-        twoD.rotate(2 * Math.PI - minutes * Math.PI / 30);
-        twoD.rotate(hours * Math.PI / 6);
-        twoD.setStroke(new BasicStroke(6));
-        twoD.setColor(new Color(255, 0, 0, 199));
-        twoD.drawLine(0, 0, 0, -SCAlE_WIDTH / 5);
+        return dest;
     }
 }
