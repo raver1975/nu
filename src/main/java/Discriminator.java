@@ -1,4 +1,3 @@
-import com.idrsolutions.image.scale.SuperResolution;
 import org.bytedeco.javacv.FFmpegFrameRecorder;
 import org.bytedeco.javacv.Frame;
 import org.bytedeco.javacv.FrameRecorder;

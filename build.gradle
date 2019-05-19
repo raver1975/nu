@@ -21,7 +21,7 @@ application {
 sourceSets {
     main {
         java {
-            srcDirs = ['src/main']
+            srcDirs = ['src/main/java']
         }
     }
 }
