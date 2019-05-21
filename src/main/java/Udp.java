@@ -28,7 +28,7 @@ public class Udp {
         frame.pack();
         frame.setVisible(true);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        FFmpegFrameGrabber fg = new FFmpegFrameGrabber("udp://192.168.1.13:2345");
+        FFmpegFrameGrabber fg = new FFmpegFrameGrabber("udp://127.0.0.1:2345");
         fg.setFrameRate(30);
         fg.setFormat("mpegts");
         fg.setVideoBitrate(1000000);
