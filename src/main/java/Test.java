@@ -15,18 +15,18 @@ import javax.swing.JSlider;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import java.awt.Color;
-import java.awt.Dimension;
+import java.awt.Component;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
+import java.awt.Rectangle;
 import java.awt.RenderingHints;
-import java.awt.Toolkit;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.FloatBuffer;
@@ -47,7 +47,7 @@ public class Test {
     //    private static final int reset_after = 600;
 //    private static final boolean usesuperresolution = false;
 //    private static final int SCAlE_WIDTH = usesuperresolution ? 256 : 512;  //change resolution here
-    private static final boolean record = false;
+    private static final boolean record = true;
     private static final float speedFactor = 20f;
 
     private Java2DFrameConverter converter;
@@ -80,13 +80,19 @@ public class Test {
                 }
             });
             Runtime.getRuntime().addShutdownHook(thread);
-            recorder = new FFmpegFrameRecorder(new File("out" + Math.random() + ".mp4"), stretch_width, stretch_height, 2);
+
+          /*  recorder = new FFmpegFrameRecorder(new File("out" + Math.random() + ".mp4"), stretch_width, stretch_height, 2);
 //            recorder.setVideoCodec(12);
             recorder.setFormat("mp4");
             recorder.setFrameRate(30);
-            recorder.setVideoQuality(0);
-            recorder.setImageWidth(stretch_width);
-            recorder.setImageHeight(stretch_height);
+            recorder.setVideoQuality(0);*/
+            recorder = new FFmpegFrameRecorder("udp://127.0.0.56:2345", 0);
+            recorder.setVideoCodecName("mpeg2video");
+            recorder.setFormat("mpegts");
+            recorder.setVideoBitrate(1000000);
+            recorder.setFrameRate(30);
+            recorder.setImageWidth(rotate90 ? stretch_height * 2 : stretch_width * 2);
+            recorder.setImageHeight(rotate90 ? stretch_width * 2 : stretch_height * 2);
             try {
                 recorder.start();
                 System.out.println("****recorder started");
@@ -165,8 +171,8 @@ public class Test {
         }
         //frame.getContentPane().add(panels[3]);
 
-        frame.setUndecorated(true);
-        Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
+        frame.setUndecorated(false);
+//        Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
 //        frame.setLocation(dim.width / 2 - WIDTH / 2, dim.height / 2 - this.WIDTH / 2);
 //        frame.setSize(frame.getSize().width * 2 / 3, frame.getSize().height * 2 / 3);
         frame.pack();
@@ -219,8 +225,7 @@ public class Test {
                     drawTime(images[1], 0, stretch_height);
                     drawTime(images[2], stretch_width, 0);
                     drawTime(images[3], 0, 0);
-                }
-                else{
+                } else {
                     drawTime(images[2], stretch_width, stretch_height);
                     drawTime(images[0], 0, stretch_height);
                     drawTime(images[3], stretch_width, 0);
@@ -232,7 +237,11 @@ public class Test {
                     label[k].repaint();
                 }
                 if (record) {
-                    Frame frame1 = converter.convert(images[0]);
+                    BufferedImage im = componentToImage(frame.getContentPane(), new Rectangle(0, 0, rotate90 ? stretch_height * 2 : stretch_width * 2, rotate90 ? stretch_width * 2 : stretch_height * 2));
+//                    if (rotate90) {
+//                        im = rotateClockwise90(im);
+//                    }
+                    Frame frame1 = converter.convert(im);
                     try {
                         recorder.recordImage(frame1.imageWidth, frame1.imageHeight, frame1.imageDepth, frame1.imageChannels, frame1.imageStride, AV_PIX_FMT_ARGB, frame1.image);
                     } catch (FrameRecorder.Exception e) {
@@ -363,7 +372,7 @@ public class Test {
         lastMinutes = minutes;
         if (timeCounter-- > 0) {
             Graphics2D twoD = (Graphics2D) image.getGraphics();
-            twoD.setColor(new Color(255, 0, 0, timeCounter*4));
+            twoD.setColor(new Color(255, 0, 0, timeCounter * 4));
             SimpleDateFormat sdf = new SimpleDateFormat("hh:mm");
 //        SimpleDateFormat sdf = new SimpleDateFormat("hh:MM:ss");
 //            twoD.setColor(Color.red);
@@ -391,5 +400,17 @@ public class Test {
         graphics2D.drawRenderedImage(src, null);
 
         return dest;
+    }
+
+    public static BufferedImage componentToImage(Component component, Rectangle region) throws IOException {
+        BufferedImage img = new BufferedImage(component.getWidth(), component.getHeight(), BufferedImage.TYPE_INT_ARGB_PRE);
+        Graphics g = img.getGraphics();
+        g.setColor(component.getForeground());
+        g.setFont(component.getFont());
+        component.paintAll(g);
+        if (region == null) {
+            region = new Rectangle(0, 0, img.getWidth(), img.getHeight());
+        }
+        return img.getSubimage(region.x, region.y, region.width, region.height);
     }
 }
