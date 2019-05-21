@@ -86,7 +86,7 @@ public class Test {
             recorder.setFormat("mp4");
             recorder.setFrameRate(30);
             recorder.setVideoQuality(0);*/
-            recorder = new FFmpegFrameRecorder("udp://192.168.1.56:2345", 0);
+            recorder = new FFmpegFrameRecorder("udp://24.208.43.252:2345", 0);
             recorder.setVideoCodecName("mpeg2video");
             recorder.setFormat("mpegts");
             recorder.setVideoBitrate(1000000);
