@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.nio.FloatBuffer;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.StringTokenizer;
 
 import static org.bytedeco.javacpp.avutil.AV_PIX_FMT_ARGB;
 
@@ -58,6 +59,11 @@ public class Test {
     private int timeCounter;
 
     public static void main(String[] args) throws IOException, InterruptedException {
+        String property = System.getProperty("java.library.path");
+        StringTokenizer parser = new StringTokenizer(property, ";");
+        while (parser.hasMoreTokens()) {
+            System.out.println(parser.nextToken());
+        }
         new Test();
     }
 
