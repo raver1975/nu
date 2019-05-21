@@ -26,9 +26,8 @@ sourceSets {
     }
 }
 
-project.ext.set('nativeLibsDir', "jni")
-
 run{
+    project.ext.set('nativeLibsDir', "jni")
     systemProperty "java.library.path", project.nativeLibsDir
 }
 
