@@ -52,7 +52,7 @@ public class Test {
 
     private Java2DFrameConverter converter;
     private static FFmpegFrameRecorder recorder;
-    private int num_images = 4;
+    private int num_images = 1;
     private float[][] input = new float[num_images][100];
     private float[][] direction = new float[num_images][100];
     private int lastMinutes;
@@ -220,24 +220,25 @@ public class Test {
 //                }
 
                 //twoD.translate(SCAlE_WIDTH/2+SCAlE_WIDTH/3,SCAlE_WIDTH/2-SCAlE_WIDTH/3);
-                if (!rotate90) {
-                    drawTime(images[0], stretch_width, stretch_height);
-                    drawTime(images[1], 0, stretch_height);
-                    drawTime(images[2], stretch_width, 0);
-                    drawTime(images[3], 0, 0);
-                } else {
-                    drawTime(images[2], stretch_width, stretch_height);
-                    drawTime(images[0], 0, stretch_height);
-                    drawTime(images[3], stretch_width, 0);
-                    drawTime(images[1], 0, 0);
+                if (num_images == 1) {
+                    drawTime(images[0], stretch_width / 2, stretch_height / 2,.5f);
+                }
+                if (num_images == 4) {
+                    if (!rotate90) {
+                        drawTime(images[0], stretch_width, stretch_height,1f);
+                        drawTime(images[1], 0, stretch_height,1f);
+                        drawTime(images[2], stretch_width, 0,1f);
+                        drawTime(images[3], 0, 0,1f);
+                    } else {
+                        drawTime(images[2], stretch_width, stretch_height,1f);
+                        drawTime(images[0], 0, stretch_height,1f);
+                        drawTime(images[3], stretch_width, 0,1f);
+                        drawTime(images[1], 0, 0,1f);
+                    }
                 }
 //                usesuperresolution ? SuperResolution.scale2x(images[k]) :
-                for (int k = 0; k < num_images; k++) {
-                    imageIcon[k].setImage((rotate90 ? rotateClockwise90(images[k]) : images[k]));
-                    label[k].repaint();
-                }
                 if (record) {
-                    BufferedImage im = componentToImage(frame.getContentPane(), new Rectangle(0, 0, rotate90 ? stretch_height * 2 : stretch_width * 2, rotate90 ? stretch_width * 2 : stretch_height * 2));
+                    BufferedImage im = componentToImage(frame.getContentPane());
 //                    if (rotate90) {
 //                        im = rotateClockwise90(im);
 //                    }
@@ -248,6 +249,11 @@ public class Test {
                         e.printStackTrace();
                     }
                 }
+                for (int k = 0; k < num_images; k++) {
+                    imageIcon[k].setImage((rotate90 ? rotateClockwise90(images[k]) : images[k]));
+                    label[k].repaint();
+                }
+
             }
 
         }
@@ -360,7 +366,7 @@ public class Test {
         }
     }
 
-    public void drawTime(BufferedImage image, int x, int y) {
+    public void drawTime(BufferedImage image, int x, int y, float v) {
         Date date = new Date();
         int seconds = date.getSeconds();
         int minutes = date.getMinutes();
@@ -376,7 +382,7 @@ public class Test {
             SimpleDateFormat sdf = new SimpleDateFormat("hh:mm");
 //        SimpleDateFormat sdf = new SimpleDateFormat("hh:MM:ss");
 //            twoD.setColor(Color.red);
-            Font font = new Font(Font.SANS_SERIF, Font.PLAIN, 80);
+            Font font = new Font(Font.SANS_SERIF, Font.PLAIN, (int) (80*v));
             twoD.setFont(font);
             String time = sdf.format(date);
             if (time.startsWith("0")) {
@@ -402,15 +408,15 @@ public class Test {
         return dest;
     }
 
-    public static BufferedImage componentToImage(Component component, Rectangle region) throws IOException {
+    public static BufferedImage componentToImage(Component component) throws IOException {
         BufferedImage img = new BufferedImage(component.getWidth(), component.getHeight(), BufferedImage.TYPE_INT_ARGB_PRE);
         Graphics g = img.getGraphics();
         g.setColor(component.getForeground());
         g.setFont(component.getFont());
         component.paintAll(g);
-        if (region == null) {
-            region = new Rectangle(0, 0, img.getWidth(), img.getHeight());
-        }
+//        if (region == null) {
+        Rectangle region = new Rectangle(0, 0, img.getWidth(), img.getHeight());
+//        }
         return img.getSubimage(region.x, region.y, region.width, region.height);
     }
 }
